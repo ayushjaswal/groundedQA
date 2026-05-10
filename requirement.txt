@@ -6,3 +6,4 @@ pymupdf
 peft
 bitsandbytes
 chromadb
+ipykernel
