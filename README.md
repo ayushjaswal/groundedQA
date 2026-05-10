@@ -41,4 +41,8 @@ uv sync
 
 The model performed with the accuracy of 93.4% which was better than the expected accuracy of 76% with the base model on the test dataset. It's response is just one label therefore it is good at multiple choice questions.
 
+You can find the fine-tuning code here [link](https://colab.research.google.com/drive/1EDHAGyWmNCSzQM5qNE_i75vdV4jS2QcW?usp=sharing)
+
+You can find the data-curation code here [link](https://colab.research.google.com/drive/19BhlMb3HQwtx3ikWnTxHI1ozC9uzRhyQ?usp=sharing)
+
 Hope you find this project interesting! Feel free to reach out if you have any questions or just want to chat about RAG and model training. 😊
