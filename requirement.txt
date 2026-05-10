@@ -1,0 +1,8 @@
+huggingface_hub
+transformers
+langchain
+langchain-community
+pymupdf
+peft
+bitsandbytes
+chromadb
