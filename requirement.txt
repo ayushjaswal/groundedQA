@@ -7,3 +7,6 @@ peft
 bitsandbytes
 chromadb
 ipykernel
+langchain-text-splitters
+langchain-community
+bs4
