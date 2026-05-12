@@ -12,3 +12,4 @@ pymupdf4llm
 langchain-community
 bs4
 sentence-transformers
+openai

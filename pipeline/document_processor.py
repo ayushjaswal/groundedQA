@@ -1,8 +1,6 @@
 import sys
 import os
-
 from pathlib import Path
-
 # sys.path.append(str(Path().resolve().parent))
 from controllers.utils import (
     extract_text,
@@ -17,10 +15,12 @@ from langchain_text_splitters import (
 )
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
-
 import chromadb
 from sentence_transformers import SentenceTransformer
 from huggingface_hub import InferenceClient
+from openai import OpenAI
+from dotenv import load_dotenv
+load_dotenv(override=True)
 
 
 class PreprocessDocument:
@@ -37,7 +37,7 @@ class PreprocessDocument:
         self.kb_path = kb_path
         self.workers = max(os.cpu_count() - 1, 1)
         self.hf_client = InferenceClient()
-        chroma_client = chromadb.PersistentClient(path="../knowledgebase")
+        chroma_client = chromadb.Client()
         self.collection = chroma_client.get_or_create_collection(name="knowledgebase")
 
     def load_files(self):
@@ -53,16 +53,27 @@ class PreprocessDocument:
                 results.append(result)
         return results
 
-    def generate_embeddings(self, files):
+    def generate_embeddings_huggingface(self, files):
         """
         Generates sentence embeddings for document chunks using a
         SentenceTransformer model.
         """
-        embeddings_model = SentenceTransformer("all-MiniLM-L6-v2")
+        embeddings_model = SentenceTransformer(os.getenv("EMBEDDING_MODEL_OS"))
         for file in files:
             file["embeddings"] = embeddings_model.encode(
                 file["texts"], show_progress_bar=True
+            ).tolist()
+        return files
+
+    def generate_embeddings_openai(self, files):
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        for file in files:
+            response = client.embeddings.create(
+                input=file["texts"],
+                model=os.getenv("EMBEDDING_MODEL_OAI")
             )
+            # extract embedding vector from each item
+            file['embeddings'] = [item.embedding for item in response.data]
         return files
 
     def save_to_chroma(self):
@@ -70,7 +81,11 @@ class PreprocessDocument:
         Coordinates loading, embedding, and storing processed document
         chunks into the ChromaDB collection.
         """
-        files = self.generate_embeddings(self.load_files())
+        if os.getenv("ENV_TYPE") == "DEV":
+            files = self.generate_embeddings_huggingface(self.load_files())
+        else:
+            files = self.generate_embeddings_openai(self.load_files())
+
         for file in files:
             metadatas = [
                 {"source": file["source"], "chunk_id": i}
@@ -81,7 +96,7 @@ class PreprocessDocument:
             ids = [f"{base_id}_{i}" for i in range(len(file["texts"]))]
 
             self.collection.add(
-                embeddings=file["embeddings"].tolist(),
+                embeddings=file["embeddings"],
                 documents=file["texts"],
                 ids=ids,
                 metadatas=metadatas,
@@ -96,7 +111,7 @@ class PreprocessDocument:
         improve vector search relevance (HyDE).
         """
         response = self.hf_client.chat_completion(
-            model="meta-llama/Llama-3.1-8B-Instruct",
+            model=os.getenv("HYPO_MODEL"),
             messages=[
                 {
                     "role": "system",
@@ -113,8 +128,22 @@ class PreprocessDocument:
         Retrieves the top-4 most similar document chunks from ChromaDB
         using a HyDE-expanded query.
         """
+        # embed the hyde query using the same model as indexing
+        hyde = self.hyde_query(query)
+        
+        if os.getenv("ENV_TYPE") == "DEV":
+            embeddings_model = SentenceTransformer(os.getenv("EMBEDDING_MODEL_OS"))
+            query_embedding = embeddings_model.encode([hyde]).tolist()
+        else:
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            response = client.embeddings.create(
+                input=[hyde],
+                model=os.getenv("EMBEDDING_MODEL_OAI")
+            )
+            query_embedding = [response.data[0].embedding]
+
         results = self.collection.query(
-            query_texts=[self.hyde_query(query)],
+            query_embeddings=query_embedding,   # <- not query_texts
             n_results=4,
             include=["documents", "distances"],
         )
