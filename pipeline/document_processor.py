@@ -87,8 +87,8 @@ class PreprocessDocument:
                 metadatas=metadatas,
             )
             print(f"Stored {len(file['texts'])} chunks from {file['source']}")
-
         print(f"Total in collection: {self.collection.count()}")
+        return self
 
     def hyde_query(self, question):
         """
