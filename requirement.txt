@@ -8,5 +8,7 @@ bitsandbytes
 chromadb
 ipykernel
 langchain-text-splitters
+pymupdf4llm
 langchain-community
 bs4
+sentence-transformers
