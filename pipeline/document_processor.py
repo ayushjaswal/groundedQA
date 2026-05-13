@@ -72,7 +72,7 @@ class PreprocessDocument:
                 input=file["texts"],
                 model=os.getenv("EMBEDDING_MODEL_OAI")
             )
-            # extract embedding vector from each item
+
             file['embeddings'] = [item.embedding for item in response.data]
         return files
 
@@ -91,7 +91,7 @@ class PreprocessDocument:
                 {"source": file["source"], "chunk_id": i}
                 for i in range(len(file["texts"]))
             ]
-            # ids must be unique across all files
+
             base_id = file["source"].replace(".pdf", "")
             ids = [f"{base_id}_{i}" for i in range(len(file["texts"]))]
 
@@ -128,7 +128,7 @@ class PreprocessDocument:
         Retrieves the top-4 most similar document chunks from ChromaDB
         using a HyDE-expanded query.
         """
-        # embed the hyde query using the same model as indexing
+
         hyde = self.hyde_query(query)
         
         if os.getenv("ENV_TYPE") == "DEV":
@@ -143,7 +143,7 @@ class PreprocessDocument:
             query_embedding = [response.data[0].embedding]
 
         results = self.collection.query(
-            query_embeddings=query_embedding,   # <- not query_texts
+            query_embeddings=query_embedding, 
             n_results=4,
             include=["documents", "distances"],
         )
