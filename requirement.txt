@@ -13,3 +13,4 @@ langchain-community
 bs4
 sentence-transformers
 openai
+gradio
