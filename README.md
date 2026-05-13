@@ -1,48 +1,118 @@
-# 🧬 My ScienceQA Grounded RAG Project
+# 🏆 GroundedQA: Intelligent PDF & Research Paper RAG Engine
 
-👋 **Hey there!** This is a personal hobby project I built to play around with RAG (Retrieval-Augmented Generation) and LLM fine-tuning. 
+GroundedQA is a high-performance Retrieval-Augmented Generation (RAG) system engineered specifically to ingest, process, index, and answer complex questions grounded entirely in academic research papers, technical manuals, and PDF documentation. 
 
-The main goal here is to answer multiple-choice science questions by retrieving relevant context from documents (like textbooks or PDFs) and then feeding that context into a custom model I fine-tuned. The model is trained to select the correct choice and write out a detailed explanation of why it’s correct.
+Built with scalability, efficiency, and flexibility in mind, GroundedQA supports dual-mode execution—letting you run entirely **offline and local** (via SentenceTransformers and Hugging Face Hub) or **cloud-optimized** (via OpenAI embeddings and GPT-4o models).
 
 ---
 
-## 🚀 Hugging Face Links
+## 🗺️ System Architecture & Workflow
 
-I hosted all the models, custom tokenizer, and datasets I used/trained directly on Hugging Face so they're easy to access:
+The architecture is divided into two highly optimized pipelines:
+1. **Concurrent Document Ingestion Pipeline**: Parsed documents are cleaned, split semantically, embedded, and indexed.
+2. **HyDE-Powered Grounded Q&A Pipeline**: High-relevance search is achieved using Hypothetical Document Embeddings (HyDE) before grounding the final answers using context.
 
-* **Fine-Tuned Model**: [🤗 ayushjaswal/scienceqa-llama32_it1](https://huggingface.co/ayushjaswal/scienceqa-llama32_it1) (A fine-tuned LLaMA 3.2 Instruct model!)
-* **My Custom Tokenizer**: [🤗 ayushjaswal/scienceqa-llama32_it1_tokenizer](https://huggingface.co/ayushjaswal/scienceqa-llama32_it1_tokenizer)
-* **My Cleaned Dataset**: [🤗 ayushjaswal/scienceQAcleaned](https://huggingface.co/datasets/ayushjaswal/scienceQAcleaned) (I took the original `derek-thomas/ScienceQA` dataset and cleaned it up for this project).
+```mermaid
+graph TD
+    subgraph Ingestion Pipeline
+        A[PDF Research Papers] --> B[ProcessPoolExecutor]
+        B --> C[PyMuPDF4LLM Extraction]
+        C --> D[Markdown Conversion]
+        D --> E[Custom Regex Cleaner]
+        E --> F[Markdown Header & Char Splitter]
+        F --> G[Embedding Generator<br>SentenceTransformers / OpenAI]
+        G --> H[(ChromaDB Vector Store)]
+    end
+
+    subgraph Query & RAG Pipeline
+        I[User Question] --> J[HyDE LLM Generator<br>Hypothetical Answer]
+        J --> K[Embed & Query ChromaDB]
+        H -.-> K
+        K --> L[Retrieve Top-4 Semantic Chunks]
+        L --> M[Builder Prompt<br>Question + Context]
+        M --> N[Answerer LLM<br>HuggingFace / OpenAI]
+        N --> O[Grounded Final Answer]
+    end
+```
+
 ---
 
-## 🔧 How to Set Up and Run This Locally
+## ✨ Core Features
 
-If you want to clone this and run it on your own machine, here is how to get started:
+* 🚀 **Multi-Document Upload**: Directly drag-and-drop or upload multiple PDFs / research papers in a unified Gradio web dashboard.
+* ⚡ **High-Throughput Concurrent Processing**: Uses Python's `ProcessPoolExecutor` to process and parse multiple documents in parallel, making full use of available CPU cores.
+* 🧹 **Intellectual Markdown Cleaning**: Employs structural regex filters to automatically strip out tables, image placeholders, and raw picture-text blocks, leaving only pure, meaningful semantic text.
+* 📐 **Semantic Multi-Stage Chunking**: Uses LangChain's `MarkdownHeaderTextSplitter` followed by `RecursiveCharacterTextSplitter` to retain document structure (headers, subheaders) and maintain consistent chunk sizes (1000 characters with 200-character overlap).
+* 🔮 **HyDE (Hypothetical Document Embeddings)**: Significantly increases vector retrieval accuracy by using an LLM to generate a hypothetical factual answer to the query, which is embedded to pull context from ChromaDB rather than using the raw query.
+* 🧠 **Flexible Dual Embedding & Generation Modes**:
+  * **Local / DEV Mode**: Completely offline vector embeddings using `all-MiniLM-L6-v2` (`SentenceTransformers`) and generation via open-source state-of-the-art models (e.g., `Llama-3.1-8B-Instruct`) hosted on Hugging Face Inference API.
+  * **Cloud / PROD Mode**: Commercial-grade precision using OpenAI's `text-embedding-3-small` and generation using models like `gpt-4o`.
+* 🎨 **Interactive Gradio Dashboard**: Clean UI designed to upload, index, query, and render markdown-formatted grounded answers with easy-to-understand examples.
 
-### 1. Clone the Repo
+---
+
+## ⚙️ Technical Tech Stack
+
+| Component | Tooling & Models |
+| :--- | :--- |
+| **Frontend UI** | [Gradio](https://gradio.app/) |
+| **PDF Extraction** | [PyMuPDF4LLM](https://github.com/pymupdf/PyMuPDF4LLM) |
+| **Document Chunking** | [LangChain Splitters](https://github.com/langchain-ai/langchain) |
+| **Vector Database** | [ChromaDB](https://www.trychroma.com/) (Local client) |
+| **Local Model Suite** | `SentenceTransformers` (`all-MiniLM-L6-v2`) & `Hugging Face InferenceClient` |
+| **Cloud Model Suite** | OpenAI (`text-embedding-3-small`, `gpt-4o`) |
+| **Environment Control**| `python-dotenv` & `uv` package manager |
+
+---
+
+## 🔧 Installation & Setup Guide
+
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/ayushjaswal/scienceqa-project.git
 cd scienceqa-project
 ```
 
-### 2. Create a Virtual Environment
+### 2. Install Dependencies (Using `uv`)
+We recommend using the extremely fast Python package manager [uv](https://github.com/astral-sh/uv).
 ```bash
+# Initialize project environment
 uv init
+
+# Install requirements
 uv add -r requirement.txt
+
+# Synchronize virtual environment
 uv sync
 ```
+
+### 3. Configure the Environment
+Create a `.env` file in the root directory. You can copy the contents of `.env.sample` and fill in your API keys and preferred configurations:
+
 ---
 
-## ✍️ Some Notes on the Fine-Tuning
+## 🚀 How to Run GroundedQA
 
-* **Base Model**: LLaMA-3.2-Instruct
-* **How I Trained It**: I fine-tuned it using **QLoRA** (4-bit quantization with `bitsandbytes` and `peft`) so that I could train and test it easily without needing super heavy compute or enterprise rigs.
-* **The Data**: I noticed the original `derek-thomas/ScienceQA` dataset had some noise such as images and other unstructured data, so I cleaned it up to create `ayushjaswal/scienceQAcleaned`. 
+To boot up the interactive Gradio dashboard locally:
 
-The model performed with the accuracy of 93.4% which was better than the expected accuracy of 76% with the base model on the test dataset. It's response is just one label therefore it is good at multiple choice questions.
+```bash
+# Run using uv
+uv run app.py
 
-You can find the fine-tuning code here [link](https://colab.research.google.com/drive/1EDHAGyWmNCSzQM5qNE_i75vdV4jS2QcW?usp=sharing)
+# Or run directly via your virtual environment python
+python app.py
+```
 
-You can find the data-curation code here [link](https://colab.research.google.com/drive/19BhlMb3HQwtx3ikWnTxHI1ozC9uzRhyQ?usp=sharing)
+Once executed, open your browser and navigate to the local host URL (typically `http://127.0.0.1:7860`):
 
-Hope you find this project interesting! Feel free to reach out if you have any questions or just want to chat about RAG and model training. 😊
+1. **Upload Documents**: Under the "Upload Documents" column, drag-and-drop your research papers or academic PDFs.
+2. **Index**: Click **Index Documents**. This triggers concurrent PDF-to-Markdown parsing, custom cleaning, and vector storage indexing in ChromaDB.
+3. **Query**: Ask any technical question. GroundedQA will synthesize a hypothetical response, search for top-4 highly similar document segments, and output a premium, grounded answer with clear real-world examples!
+
+---
+
+## 📝 Grounded QA Prompting Philosophy
+
+The system's `Answerer` ensures strict factual alignment:
+* **No hallucination**: If the vector database fails to retrieve matching content, the LLM will reply strictly with: `"There's no information regarding that in the KB"`.
+* **Structured & Educational**: Outputs are enriched with rich markdown syntax and include simplified examples to make dense research paper content accessible.
